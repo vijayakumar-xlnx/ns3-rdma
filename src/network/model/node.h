@@ -200,6 +200,10 @@ public:
   void SetNodeType(uint32_t type, bool dynamicth);
   void SetNodeType(uint32_t type);
   uint32_t GetNodeType();
+
+  std::string m_name;
+  void SetNickName(const std::string name);
+  std::string GetNickName(void) const;
   
   /*
   bool CheckIngressAdmission(uint32_t port,uint32_t qIndex, uint32_t psize);

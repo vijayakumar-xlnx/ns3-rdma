@@ -31,6 +31,12 @@
 #include "ns3/packet.h"
 #include "ns3/error-model.h"
 
+#include "ns3/qbb-net-device.h"
+#include "ns3/point-to-point-channel.h"
+#include "ns3/point-to-point-remote-channel.h"
+#include "ns3/qbb-channel.h"
+#include "ns3/qbb-remote-channel.h"
+
 using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE("GENERIC_SIMULATION");
@@ -48,7 +54,9 @@ std::string rate_ai, rate_hai;
 bool clamp_target_rate = false, clamp_target_rate_after_timer = false, send_in_chunks = true, l2_wait_for_ack = false, l2_back_to_zero = false, l2_test_read = false;
 double error_rate_per_link = 0.0;
 
-
+std::string rp = " RP::";
+std::string np = " NP::";
+std::string cp = " SWITCH::";
 
 int main(int argc, char *argv[])
 {
@@ -423,12 +431,14 @@ int main(int argc, char *argv[])
 
 	NodeContainer n;
 	n.Create(node_num);
+	/* Create SWITCH NODES */
 	for (uint32_t i = 0; i < switch_num; i++)
 	{
 		uint32_t sid;
 		topof >> sid;
 		n.Get(sid)->SetNodeType(1, dynamicth); //broadcom switch
 		n.Get(sid)->m_broadcom->SetMarkingThreshold(kmin, kmax, pmax);
+    n.Get(sid)->SetNickName(cp + std::to_string(i));
 	}
 
 
@@ -495,7 +505,8 @@ int main(int argc, char *argv[])
 		trace_nodes = NodeContainer(trace_nodes, n.Get(nid));
 	}
 	AsciiTraceHelper ascii;
-	qbb.EnableAscii(ascii.CreateFileStream(trace_output_file), trace_nodes);
+	Ptr<OutputStreamWrapper> tracefile = ascii.CreateFileStream(trace_output_file);
+	qbb.EnableAscii(tracefile, trace_nodes);
 
 	Ipv4GlobalRoutingHelper::PopulateRoutingTables();
 
@@ -504,6 +515,9 @@ int main(int argc, char *argv[])
 	uint32_t packetSize = packet_payload_size;
 	Time interPacketInterval = Seconds(0.0000005 / 2);
 
+	/* NUM FLOWS: 2
+	*  APPLICATIONS will get installed only in DATA NODES
+	*/
 	for (uint32_t i = 0; i < flow_num; i++)
 	{
 		uint32_t src, dst, pg, maxPacketCount, port;
@@ -515,7 +529,8 @@ int main(int argc, char *argv[])
 		NS_ASSERT(n.Get(src)->GetNodeType() == 0 && n.Get(dst)->GetNodeType() == 0);
 		Ptr<Ipv4> ipv4 = n.Get(dst)->GetObject<Ipv4>();
 		Ipv4Address serverAddress = ipv4->GetAddress(1, 0).GetLocal(); //GetAddress(0,0) is the loopback 127.0.0.1
-
+		
+		/* No Chunks */
 		if (send_in_chunks)
 		{
 			UdpEchoServerHelper server0(port, pg); //Add Priority
@@ -534,6 +549,9 @@ int main(int argc, char *argv[])
 		{
 			UdpServerHelper server0(port);
 			ApplicationContainer apps0s = server0.Install(n.Get(dst));
+			/* Receiver: NP */
+			n.Get(dst)->SetNickName(np + std::to_string(n.Get(dst)->GetId()));
+			
 			apps0s.Start(Seconds(app_start_time));
 			apps0s.Stop(Seconds(app_stop_time));
 			UdpClientHelper client0(serverAddress, port, pg); //Add Priority
@@ -541,13 +559,19 @@ int main(int argc, char *argv[])
 			client0.SetAttribute("Interval", TimeValue(interPacketInterval));
 			client0.SetAttribute("PacketSize", UintegerValue(packetSize));
 			ApplicationContainer apps0c = client0.Install(n.Get(src));
+			/* TRANSMITTER: RP */
+			n.Get(src)->SetNickName(rp + std::to_string(n.Get(src)->GetId()));
+
 			apps0c.Start(Seconds(start_time));
 			apps0c.Stop(Seconds(stop_time));
+			std::cout << "FLOWS_SETUP:: SRC::" << src << "DST::"<< dst << std::endl;
+			std::cout << "UDP SERVER installed in NODE::" << n.Get(dst) << std::endl;
+			std::cout << "UDP CLIENT installed in NODE::" << n.Get(src) << std::endl;
 		}
 
 	}
 
-
+	/* THIS IS DISABLED, There are no TCP FLOWS from the config file */
 	for (uint32_t i = 0; i < tcp_flow_num; i++)
 	{
 		uint32_t src, dst, pg, maxPacketCount, port;
@@ -585,6 +609,8 @@ int main(int argc, char *argv[])
 	// Now, do the actual simulation.
 	//
 	std::cout << "Running Simulation.\n";
+
+	qbb.RecordDcqcn(tracefile);
 	fflush(stdout);
 	NS_LOG_INFO("Run Simulation.");
 	Simulator::Stop(Seconds(simulator_stop_time));
