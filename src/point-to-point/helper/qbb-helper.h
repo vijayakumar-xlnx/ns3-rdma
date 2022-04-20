@@ -52,6 +52,7 @@ public:
   virtual ~QbbHelper () {}
 
   void RecordDcqcn (Ptr<OutputStreamWrapper> stream);
+  void CollectStatistics(Ptr<OutputStreamWrapper> stream);
 
   /**
    * Each point to point net device must have a queue to pass packets through.
