@@ -205,12 +205,6 @@ public:
   void SetNickName(const std::string name);
   std::string GetNickName(void) const;
   
-  // Counters
-  uint64_t num_ecn; //ECN markings (Switch) or ECN marking packets received (NP)
-  uint64_t num_cnp; // generated (NP) or Received/Addressed (RP)
-  uint64_t num_pfc;
-  uint64_t num_drops;
-
   /*
   bool CheckIngressAdmission(uint32_t port,uint32_t qIndex, uint32_t psize);
   bool CheckEgressAdmission(uint32_t port,uint32_t qIndex, uint32_t psize);

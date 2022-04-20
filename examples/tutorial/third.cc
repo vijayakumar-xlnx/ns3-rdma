@@ -615,14 +615,7 @@ int main(int argc, char *argv[])
 	NS_LOG_INFO("Run Simulation.");
 	Simulator::Stop(Seconds(simulator_stop_time));
 	Simulator::Run();
-	NS_LOG_INFO("Simulation Done.")
-	std::cout << "Calling NODE::" << std::endl;
-	std::cout << "NODE::" << n.Get(0)->GetNickName() << std::endl;
-	qbb.CollectStatistics(tracefile);
-	NS_LOG_INFO("Simulation Destroy");
 	Simulator::Destroy();
-	NS_LOG_INFO("Simulation Destroy Done");
-
 	NS_LOG_INFO("Done.");
 
 	endt = clock();
