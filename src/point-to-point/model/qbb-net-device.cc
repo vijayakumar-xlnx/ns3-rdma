@@ -217,6 +217,11 @@ namespace ns3 {
 
 	QbbNetDevice::~QbbNetDevice()
 	{
+		if (this->flag) {
+			*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() << " STATISTICS:-" << std::endl;
+		}
+		std::cout << Simulator::Now().GetSeconds() << m_node->GetNickName() << " STATISTICS:-" << std::endl;
+
 		NS_LOG_FUNCTION(this);
 	}
 
@@ -380,6 +385,7 @@ namespace ns3 {
 								*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() << 
 									" [TX::] Detected congestion, MARKING ECN for the Flow ID: " << inDev << " Qid: " << m_queue->GetLastQueue() << 
 									"" << std::endl;
+								m_node->num_ecn++;
 							}
 						}
 						p->AddHeader(h);
@@ -397,7 +403,7 @@ namespace ns3 {
 			if (m_node->GetNodeType() == 0 && m_qcnEnabled) //nothing to send, possibly due to qcn flow control, if so reschedule sending
 			{
 				if (this->flag) {
-					//*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() << " NODE_ID: " << m_node->GetId() << " [TX::] QbbNetDevice is on PAUSE STATE, Due to qcn flow ?" << std::endl;
+					*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() << " NODE_ID: " << m_node->GetId() << " [TX::] QbbNetDevice is on PAUSE STATE, Due to qcn flow ?" << std::endl;
 				}
 				Time t = Simulator::GetMaximumSimulationTime();
 				for (uint32_t i = 0; i < m_queue->m_fcount; i++)
@@ -637,6 +643,7 @@ namespace ns3 {
 				*this->dcqcn->GetStream() << "################ START ###############" << std::endl;
 				*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() <<
 					" QCN on NIC:: Extract DATA from CNP PACKET " << std::endl;
+				m_node->num_cnp++;
 			}
 			CnHeader cnHead;
 			p->RemoveHeader(cnHead);
@@ -1054,6 +1061,10 @@ namespace ns3 {
 		{
 			if (pClasses[j])			// Create the PAUSE packet
 			{
+				if (this->flag) {
+					*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() << " PFC:: Generate PAUSE FRAME (STOP FLOW) " << std::endl;
+					m_node->num_pfc++;
+				}
 				Ptr<Packet> p = Create<Packet>(0);
 				PauseHeader pauseh(m_pausetime, m_queue->GetNBytes(j), j);
 				p->AddHeader(pauseh);
@@ -1080,7 +1091,8 @@ namespace ns3 {
 			if (m_node->m_broadcom->GetResumeClasses(inDev, qIndex))  // Create the PAUSE packet
 			{
 				if (this->flag) {
-					*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << " PFC:: Generate PAUSE FRAME " << __LINE__ << std::endl;
+					*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() << " PFC:: Generate PAUSE FRAME (RESUME) " << std::endl;
+					m_node->num_pfc++;
 				}
 				Ptr<Packet> p = Create<Packet>(0);
 				PauseHeader pauseh(0, m_queue->GetNBytes(j), j); //resume
@@ -1219,6 +1231,7 @@ namespace ns3 {
 							" Generating CNP PACKET::ECN::" << info.ecnbits <<
 							" QFB::" << info.qfb << " TOTAL::" << info.total <<
 							"" << std::endl;
+						m_node->num_cnp++;
 					}
 					Ptr<Packet> p = Create<Packet>(0);
 					CnHeader cn(port, qIndex, info.ecnbits, info.qfb, info.total);	// Prepare CN header
