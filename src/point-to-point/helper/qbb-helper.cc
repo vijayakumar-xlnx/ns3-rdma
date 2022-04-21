@@ -63,6 +63,12 @@ QbbHelper::RecordDcqcn(Ptr<OutputStreamWrapper> stream)
 	for (NodeContainer::Iterator i = n.Begin(); i != n.End(); ++i)
 	{
 		Ptr<Node> node = *i;
+
+		//reset node couneters
+		node->num_cnp = 0;
+		node->num_ecn = 0;
+		node->num_pfc = 0;
+
 		for (uint32_t j = 0; j < node->GetNDevices(); ++j)
 		{
 			ndev = node->GetDevice(j);
@@ -94,6 +100,11 @@ QbbHelper::CollectStatistics(Ptr<OutputStreamWrapper> stream)
 								" NUM_CNP::" << node->num_cnp <<
 								" NUM_PFC::" << node->num_pfc <<
 								"" << std::endl;
+		std::cout << "STATISTICS ### " << node->GetNickName() << " ### " << std::endl;
+		std::cout << " NUM_ECN::" << node->num_ecn <<
+			" NUM_CNP::" << node->num_cnp <<
+			" NUM_PFC::" << node->num_pfc <<
+			"" << std::endl;
 	}
 }
 

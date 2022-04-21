@@ -358,8 +358,6 @@ namespace ns3 {
 			{
 				if (m_queue->GetLastQueue() == qCnt - 1)//this is a pause or cnp, send it immediately!
 				{
-					//std::cout << Simulator::Now().GetSeconds() << "CP: PAUSE / CNP - Quick Transmit" << std::endl;
-					//std::cout << Simulator::Now().GetSeconds() << "CP: FLAG:::" << this->flag << std::endl;
 					if (this->flag) {
 						*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() << " [TX::] PAUSE / CNP - Quick Transmit" << std::endl;
 					}
@@ -403,7 +401,7 @@ namespace ns3 {
 			if (m_node->GetNodeType() == 0 && m_qcnEnabled) //nothing to send, possibly due to qcn flow control, if so reschedule sending
 			{
 				if (this->flag) {
-					*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() << " NODE_ID: " << m_node->GetId() << " [TX::] QbbNetDevice is on PAUSE STATE, Due to qcn flow ?" << std::endl;
+					//*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() << " NODE_ID: " << m_node->GetId() << " [TX::] QbbNetDevice is on PAUSE STATE, Due to qcn flow ?" << std::endl;
 				}
 				Time t = Simulator::GetMaximumSimulationTime();
 				for (uint32_t i = 0; i < m_queue->m_fcount; i++)
@@ -617,8 +615,9 @@ namespace ns3 {
 				{
 					Simulator::Cancel(m_resumeEvt[qIndex]);
 					if (this->flag) {
-						*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() << " RP::" << this->GetNode()->GetId() << " [RX::] PAUSE " <<
+						*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() << " RP::" << this->GetNode()->GetId() << " [RX::PFC::] PAUSE " <<
 							"stop the corresponding queue::" << qIndex << std::endl;
+						m_node->num_pfc++;
 					}
 					m_resumeEvt[qIndex] = Simulator::Schedule(MicroSeconds(pauseh.GetTime()), &QbbNetDevice::PauseFinish, this, qIndex);
 				}
@@ -626,8 +625,9 @@ namespace ns3 {
 				{
 					Simulator::Cancel(m_resumeEvt[qIndex]);
 					if (this->flag) {
-						*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() << " RP::" << this->GetNode()->GetId() << " [RX::] PAUSE FINISHED, " <<
+						*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() << " RP::" << this->GetNode()->GetId() << " [RX::PFC::] PAUSE FINISHED, " <<
 							"RESUME the corresponding queue::" << qIndex << std::endl;
+						m_node->num_pfc++;
 					}
 					PauseFinish(qIndex);
 				}
