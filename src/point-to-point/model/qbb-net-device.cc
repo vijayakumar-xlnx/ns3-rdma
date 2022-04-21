@@ -1163,6 +1163,23 @@ namespace ns3 {
 		return true;
 	}
 
+	void
+		QbbNetDevice::MonitorLinkRate(void)
+	{
+		uint64_t bytes;
+
+		bytes = this->m_node->num_bytes - this->m_node->num_prev_bytes;
+		this->m_node->num_prev_bytes = this->m_node->num_bytes;
+
+		if (this->flag) {
+			*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() << 
+				" Calculated LINK RATE :: " << bytes * 8 << 
+				" [bits per " << this->m_node->rate_sampling_interval << " Microseconds ]" <<
+				"" << std::endl;
+		}
+		Simulator::Schedule(MicroSeconds(this->m_node->rate_sampling_interval), &QbbNetDevice::MonitorLinkRate, this);
+	}
+
 	bool
 		QbbNetDevice::TransmitStart(Ptr<Packet> p)
 	{
@@ -1187,6 +1204,25 @@ namespace ns3 {
 		{
 			m_phyTxDropTrace(p);
 		}
+		else {
+			/* This block represents actual transmission of packet on wire */
+			if (this->m_node->GetNodeType() == 1) {
+				if (this->m_node->num_bytes) {
+					this->m_node->num_bytes += m_currentPkt->GetSize();
+				}
+				else {
+					this->m_node->num_bytes += m_currentPkt->GetSize();
+					/* Schedule link rate monitoring */
+					if (this->flag) {
+						*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() << " SCEDULING TIMER FOR MONITORING LINK RATE " <<
+							"" << std::endl;
+					}
+					Simulator::Schedule(MilliSeconds(1), &QbbNetDevice::MonitorLinkRate, this);
+					this->m_node->num_bytes += m_currentPkt->GetSize();
+				}
+			}
+		}
+
 		return result;
 	}
 

@@ -54,7 +54,7 @@ public:
 
   bool flag;
   Ptr<OutputStreamWrapper> dcqcn;
-
+  void MonitorLinkRate(void);
 
   /**
    * Receive a packet from a connected PointToPointChannel.

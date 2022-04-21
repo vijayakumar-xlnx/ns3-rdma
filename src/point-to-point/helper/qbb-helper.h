@@ -53,6 +53,7 @@ public:
 
   void RecordDcqcn (Ptr<OutputStreamWrapper> stream);
   void CollectStatistics(Ptr<OutputStreamWrapper> stream);
+  void SetRateSamplingInterval(uint16_t rate_sampling_interval);
 
   /**
    * Each point to point net device must have a queue to pass packets through.

@@ -57,6 +57,7 @@ double error_rate_per_link = 0.0;
 std::string rp = " RP::";
 std::string np = " NP::";
 std::string cp = " SWITCH::";
+uint16_t rate_sampling_interval = 0;
 
 int main(int argc, char *argv[])
 {
@@ -121,6 +122,15 @@ int main(int argc, char *argv[])
 					std::cout << "CLAMP_TARGET_RATE_AFTER_TIMER\t" << "Yes" << "\n";
 				else
 					std::cout << "CLAMP_TARGET_RATE_AFTER_TIMER\t" << "No" << "\n";
+			}
+			else if (key.compare("MONITOR_SWITCH_LINK_RATE") == 0)
+			{
+				uint32_t v;
+				conf >> v;
+				if (v) {
+					std::cout << "MONITOR_SWITCH_LINK_RATE\t" << v << "MicroSeconds" << std::endl;
+					rate_sampling_interval = v;
+				}
 			}
 			else if (key.compare("PACKET_LEVEL_ECMP") == 0)
 			{
@@ -564,7 +574,7 @@ int main(int argc, char *argv[])
 
 			apps0c.Start(Seconds(start_time));
 			apps0c.Stop(Seconds(stop_time));
-			std::cout << "FLOWS_SETUP:: SRC::" << src << "DST::"<< dst << std::endl;
+			std::cout << "FLOWS_SETUP:: SRC:: " << src << " DST::"<< dst << std::endl;
 			std::cout << "UDP SERVER installed in NODE::" << n.Get(dst) << std::endl;
 			std::cout << "UDP CLIENT installed in NODE::" << n.Get(src) << std::endl;
 		}
@@ -611,18 +621,17 @@ int main(int argc, char *argv[])
 	std::cout << "Running Simulation.\n";
 
 	qbb.RecordDcqcn(tracefile);
+	if (rate_sampling_interval)
+		qbb.SetRateSamplingInterval(rate_sampling_interval);
 	fflush(stdout);
+
 	NS_LOG_INFO("Run Simulation.");
 	Simulator::Stop(Seconds(simulator_stop_time));
 	Simulator::Run();
-	NS_LOG_INFO("Simulation Done.")
-	std::cout << "Calling NODE::" << std::endl;
-	std::cout << "NODE::" << n.Get(0)->GetNickName() << std::endl;
-	qbb.CollectStatistics(tracefile);
-	NS_LOG_INFO("Simulation Destroy");
-	Simulator::Destroy();
-	NS_LOG_INFO("Simulation Destroy Done");
 
+	qbb.CollectStatistics(tracefile);
+
+	Simulator::Destroy();
 	NS_LOG_INFO("Done.");
 
 	endt = clock();

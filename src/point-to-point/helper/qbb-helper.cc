@@ -68,6 +68,9 @@ QbbHelper::RecordDcqcn(Ptr<OutputStreamWrapper> stream)
 		node->num_cnp = 0;
 		node->num_ecn = 0;
 		node->num_pfc = 0;
+		node->num_prev_bytes = 0;
+		node->num_bytes = 0;
+		node->rate_sampling_interval = 0; 
 
 		for (uint32_t j = 0; j < node->GetNDevices(); ++j)
 		{
@@ -78,6 +81,21 @@ QbbHelper::RecordDcqcn(Ptr<OutputStreamWrapper> stream)
 				qbbdev->flag = 1;
 				qbbdev->dcqcn = stream;
 			}
+		}
+	}
+}
+
+void
+QbbHelper::SetRateSamplingInterval(uint16_t rate_sampling_interval)
+{
+	NodeContainer n;
+	n = NodeContainer::GetGlobal();
+	for (NodeContainer::Iterator i = n.Begin(); i != n.End(); ++i)
+	{
+		Ptr<Node> node = *i;
+
+		if (node->GetNodeType() == 1) {
+			node->rate_sampling_interval = rate_sampling_interval;
 		}
 	}
 }
@@ -255,42 +273,6 @@ QbbHelper::EnableAsciiInternal (
   // but the default trace sinks are actually publicly available static 
   // functions that are always there waiting for just such a case.
   //
-
-  //DCQCN
-#if 1
-  if (device->flag) {
-	  std::cout << "QBBHELPER: QBBNETDEVICE HAS ALREDY SET WITH FLAG:LINE::" << __LINE__ << std::endl;
-  }
-  device->flag = true;
-  std::cout << "QBBHELPER:: QBBNETDEVICE::FLAG:-" << device->flag << std::endl;
-  if (device->flag && stream)
-  {
-	  std::cout << "QBBHELPER::::NS3 RDMA Parameters:" << std::endl;
-
-	  *stream->GetStream() << "QBBHELPER::::NS3 RDMA Parameters:123::LINE::" << __LINE__ << std::endl;
-	  device->dcqcn = stream;
-	  *device->dcqcn->GetStream() << "QBBHELPER::::NS3 RDMA Parameters:1234::LINE::" << __LINE__ << std::endl;
-  }
-
-#else
-  std::cout << "Setting up DCQCN Record::" << std::endl;
-  //n :: Node container
-  Ptr<NetDevice> ndev;
-  Ptr<QbbNetDevice> qbbdev;
-  for (NodeContainer::Iterator i = n.Begin(); i != n.End(); ++i)
-  {
-  Ptr<Node> node = *i;
-  for (uint32_t j = 0; j < node->GetNDevices(); ++j)
-  {
-  std::cout << "NetDevice::" << j << std::endl;
-  ndev = node->GetDevice(j);
-  qbbdev = ndev->GetObject<QbbNetDevice>();
-  qbbdev->flag = 1;
-  qbbdev->dcqcn = tracefile;
-  }
-  }
-  std::cout << "Setting up DCQCN RECORD DONE" << std::endl;
-  #endif
 
   uint32_t nodeid = nd->GetNode ()->GetId ();
   uint32_t deviceid = nd->GetIfIndex ();
