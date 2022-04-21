@@ -197,6 +197,7 @@ namespace ns3 {
 			m_waitingAck[i] = false;
 			for (uint32_t j = 0; j < maxHop; j++)
 			{
+				/* These values are void */
 				m_txBytes[i][j] = m_bc;				//we don't need this at the beginning, so it doesn't matter what value it has
 				m_rpWhile[i][j] = m_rpgTimeReset;	//we don't need this at the beginning, so it doesn't matter what value it has
 				m_rpByteStage[i][j] = 0;
@@ -205,6 +206,7 @@ namespace ns3 {
 				m_rpStage[i][j] = 0; //not in any qcn stage
 			}
 		}
+		/* pCnt = 64 */
 		for (uint32_t i = 0; i < pCnt; i++)
 		{
 			m_ECNState[i] = 0;
@@ -215,6 +217,11 @@ namespace ns3 {
 
 	QbbNetDevice::~QbbNetDevice()
 	{
+		if (this->flag) {
+			*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() << " STATISTICS:-" << std::endl;
+		}
+		std::cout << Simulator::Now().GetSeconds() << m_node->GetNickName() << " STATISTICS:-" << std::endl;
+
 		NS_LOG_FUNCTION(this);
 	}
 
@@ -336,6 +343,9 @@ namespace ns3 {
 						{
 							//std::cout << "Waiting the ACK of the message of flow " << fIndex << " " << sth.GetSeq() << ".\n";
 							//fflush(stdout);
+							if (this->flag) {
+								*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << "Waiting the ACK of the message of flow " << __LINE__ << std::endl;
+							}
 							m_retransmit[fIndex] = Simulator::Schedule(MicroSeconds(m_waitAckTimer), &QbbNetDevice::Retransmit, this, fIndex);
 							m_waitingAck[fIndex] = true;
 						}
@@ -348,6 +358,9 @@ namespace ns3 {
 			{
 				if (m_queue->GetLastQueue() == qCnt - 1)//this is a pause or cnp, send it immediately!
 				{
+					if (this->flag) {
+						*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() << " [TX::] PAUSE / CNP - Quick Transmit" << std::endl;
+					}
 					TransmitStart(p);
 				}
 				else
@@ -366,6 +379,12 @@ namespace ns3 {
 						if (egressCongested)
 						{
 							h.SetEcn((Ipv4Header::EcnType)0x03);
+							if (this->flag) {
+								*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() << 
+									" [TX::] Detected congestion, MARKING ECN for the Flow ID: " << inDev << " Qid: " << m_queue->GetLastQueue() << 
+									"" << std::endl;
+								m_node->num_ecn++;
+							}
 						}
 						p->AddHeader(h);
 						p->AddHeader(ppp);
@@ -381,6 +400,9 @@ namespace ns3 {
 			NS_LOG_INFO("PAUSE prohibits send at node " << m_node->GetId());
 			if (m_node->GetNodeType() == 0 && m_qcnEnabled) //nothing to send, possibly due to qcn flow control, if so reschedule sending
 			{
+				if (this->flag) {
+					//*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() << " NODE_ID: " << m_node->GetId() << " [TX::] QbbNetDevice is on PAUSE STATE, Due to qcn flow ?" << std::endl;
+				}
 				Time t = Simulator::GetMaximumSimulationTime();
 				for (uint32_t i = 0; i < m_queue->m_fcount; i++)
 				{
@@ -454,6 +476,11 @@ namespace ns3 {
 		Ipv4Header ipv4h;
 		p->RemoveHeader(ipv4h);
 
+		/**
+		*  This if block intended for : SWITCH port (pure UDP traffic) or Node with a IPV4 !=  ( 0xFF (QCN) && 0xFD (PFC) && 0xFC(NACK))
+		*  
+		*
+		**/
 		if ((ipv4h.GetProtocol() != 0xFF && ipv4h.GetProtocol() != 0xFD && ipv4h.GetProtocol() != 0xFC) || m_node->GetNodeType() > 0)
 		{ //This is not QCN feedback, not NACK, or I am a switch so I don't care
 			if (ipv4h.GetProtocol() != 0xFE) //not PFC
@@ -518,6 +545,10 @@ namespace ns3 {
 						int x = ReceiverCheckSeq(sth.GetSeq(), key);
 						if (x == 2) //generate NACK
 						{
+							if (this->flag) {
+								*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() << 
+									" Generating NACK (0xFD) " << std::endl;
+							}
 							Ptr<Packet> newp = Create<Packet>(0);
 							qbbHeader seqh;
 							seqh.SetSeq(ReceiverNextExpectedSeq[key]);
@@ -543,6 +574,9 @@ namespace ns3 {
 						}
 						else if (x == 1) //generate ACK
 						{
+							if (this->flag) {
+								*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() << " Generating ACKnowledge (0xFC) " << std::endl;
+							}
 							Ptr<Packet> newp = Create<Packet>(0);
 							qbbHeader seqh;
 							seqh.SetSeq(ReceiverNextExpectedSeq[key]);
@@ -580,11 +614,21 @@ namespace ns3 {
 				if (pauseh.GetTime() > 0)
 				{
 					Simulator::Cancel(m_resumeEvt[qIndex]);
+					if (this->flag) {
+						*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() << " RP::" << this->GetNode()->GetId() << " [RX::PFC::] PAUSE " <<
+							"stop the corresponding queue::" << qIndex << std::endl;
+						m_node->num_pfc++;
+					}
 					m_resumeEvt[qIndex] = Simulator::Schedule(MicroSeconds(pauseh.GetTime()), &QbbNetDevice::PauseFinish, this, qIndex);
 				}
 				else
 				{
 					Simulator::Cancel(m_resumeEvt[qIndex]);
+					if (this->flag) {
+						*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() << " RP::" << this->GetNode()->GetId() << " [RX::PFC::] PAUSE FINISHED, " <<
+							"RESUME the corresponding queue::" << qIndex << std::endl;
+						m_node->num_pfc++;
+					}
 					PauseFinish(qIndex);
 				}
 			}
@@ -595,6 +639,12 @@ namespace ns3 {
 			// This is a Congestion signal
 			// Then, extract data from the congestion packet.
 			// We assume, without verify, the packet is destinated to me
+			if (this->flag) {
+				*this->dcqcn->GetStream() << "################ START ###############" << std::endl;
+				*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() <<
+					" QCN on NIC:: Extract DATA from CNP PACKET " << std::endl;
+				m_node->num_cnp++;
+			}
 			CnHeader cnHead;
 			p->RemoveHeader(cnHead);
 			uint32_t qIndex = cnHead.GetQindex();
@@ -619,9 +669,24 @@ namespace ns3 {
 
 			if (qfb == 0)
 			{
+				if (this->flag) {
+					*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << " RP::" << this->GetNode()->GetId() <<
+						"ERROR: Unuseful QCN\n";
+				}
 				std::cout << "ERROR: Unuseful QCN\n";
 				return;	// Unuseful CN
 			}
+
+			if (this->flag) {
+				*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() <<
+					"\t UDPPORT::" << udpport <<
+					"\t ECNBITS::" << ecnbits <<
+					"\tQFB::" << qfb <<
+					"\tTOTAL::" << total <<
+					" FLOW INDEX::" << i <<
+					"" << std::endl;
+			}
+
 			if (m_rate[i] == 0)			//lazy initialization	
 			{
 				m_rate[i] = m_bps;
@@ -630,14 +695,39 @@ namespace ns3 {
 					m_rateAll[i][j] = m_bps;
 					m_targetRate[i][j] = m_bps;	//targetrate remembers the last rate
 				}
+				if (this->flag) {
+					*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() << " [RX::] LAZY INITIALIZATION " << std::endl;
+				}
 			}
 			if (ecnbits == 0x03)
 			{
+				if (this->flag) {
+					*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() << " RX:: CALCULATED FRACTION::" << qfb*1.0 / (total + 1) <<
+						"\tFLOW INDEX: " << i <<
+						"" << std::endl;
+				}
+				/*
+				if (this->flag) {
+					*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() <<
+						" RX_RPR:: m_bps::" << m_bps <<
+						" m_rate::" << m_rate[i] <<
+						" m_rateAll::" << m_rateAll[i][0] <<
+						" m_targetRate::" << m_targetRate[i][0] <<
+						"" << std::endl;
+				}
+				*/
 				rpr_cnm_received(i, 0, qfb*1.0 / (total + 1));
 			}
 			m_rate[i] = m_bps;
 			for (uint32_t j = 0; j < maxHop; j++)
 				m_rate[i] = std::min(m_rate[i], m_rateAll[i][j]);
+			if (this->flag) {
+				*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() <<
+					" RX:: Current Rate::" << m_rate[i] <<
+					" Target Rate:: " << m_targetRate[i][0] <<
+					"" << std::endl;
+				*this->dcqcn->GetStream() << "###############  END   ################" << std::endl;
+			}
 			PointToPointReceive(packet);
 		}
 
@@ -645,7 +735,9 @@ namespace ns3 {
 		{
 			qbbHeader qbbh;
 			p->Copy()->RemoveHeader(qbbh);
-
+			if (this->flag) {
+				*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() << " NACK on NIC " << std::endl;
+			}
 			int qIndex = qbbh.GetPG();
 			int seq = qbbh.GetSeq();
 			int port = qbbh.GetPort();
@@ -706,7 +798,9 @@ namespace ns3 {
 		{
 			qbbHeader qbbh;
 			p->Copy()->RemoveHeader(qbbh);
-
+			if (this->flag) {
+				*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() << " RX:: ACK ON NIC, Protocol 0xFC " << std::endl;
+			}
 			int qIndex = qbbh.GetPG();
 			int seq = qbbh.GetSeq();
 			int port = qbbh.GetPort();
@@ -760,6 +854,9 @@ namespace ns3 {
 
 			if (m_waitAck && seq >= m_milestone_tx[i])
 			{
+				if (this->flag) {
+					*this->dcqcn->GetStream() << Simulator::Now().GetSeconds()  << m_node->GetNickName() << " Got ACK, Resume Sending..... " << std::endl;
+				}
 				//Got ACK, resume sending
 				m_nextAvail[i] = Simulator::Now();
 				Simulator::Cancel(m_retransmit[i]);
@@ -964,6 +1061,10 @@ namespace ns3 {
 		{
 			if (pClasses[j])			// Create the PAUSE packet
 			{
+				if (this->flag) {
+					*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() << " PFC:: Generate PAUSE FRAME (STOP FLOW) " << std::endl;
+					m_node->num_pfc++;
+				}
 				Ptr<Packet> p = Create<Packet>(0);
 				PauseHeader pauseh(m_pausetime, m_queue->GetNBytes(j), j);
 				p->AddHeader(pauseh);
@@ -989,6 +1090,10 @@ namespace ns3 {
 				continue;
 			if (m_node->m_broadcom->GetResumeClasses(inDev, qIndex))  // Create the PAUSE packet
 			{
+				if (this->flag) {
+					*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() << " PFC:: Generate PAUSE FRAME (RESUME) " << std::endl;
+					m_node->num_pfc++;
+				}
 				Ptr<Packet> p = Create<Packet>(0);
 				PauseHeader pauseh(0, m_queue->GetNBytes(j), j); //resume
 				p->AddHeader(pauseh);
@@ -1058,6 +1163,23 @@ namespace ns3 {
 		return true;
 	}
 
+	void
+		QbbNetDevice::MonitorLinkRate(void)
+	{
+		uint64_t bytes;
+
+		bytes = this->m_node->num_bytes - this->m_node->num_prev_bytes;
+		this->m_node->num_prev_bytes = this->m_node->num_bytes;
+
+		if (this->flag) {
+			*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() << 
+				" Calculated LINK RATE :: " << bytes * 8 << 
+				" [bits per " << this->m_node->rate_sampling_interval << " Microseconds ]" <<
+				"" << std::endl;
+		}
+		Simulator::Schedule(MicroSeconds(this->m_node->rate_sampling_interval), &QbbNetDevice::MonitorLinkRate, this);
+	}
+
 	bool
 		QbbNetDevice::TransmitStart(Ptr<Packet> p)
 	{
@@ -1082,6 +1204,25 @@ namespace ns3 {
 		{
 			m_phyTxDropTrace(p);
 		}
+		else {
+			/* This block represents actual transmission of packet on wire */
+			if (this->m_node->GetNodeType() == 1) {
+				if (this->m_node->num_bytes) {
+					this->m_node->num_bytes += m_currentPkt->GetSize();
+				}
+				else {
+					this->m_node->num_bytes += m_currentPkt->GetSize();
+					/* Schedule link rate monitoring */
+					if (this->flag) {
+						*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() << " SCEDULING TIMER FOR MONITORING LINK RATE " <<
+							"" << std::endl;
+					}
+					Simulator::Schedule(MilliSeconds(1), &QbbNetDevice::MonitorLinkRate, this);
+					this->m_node->num_bytes += m_currentPkt->GetSize();
+				}
+			}
+		}
+
 		return result;
 	}
 
@@ -1121,6 +1262,13 @@ namespace ns3 {
 			{
 				if (info.ecnbits == 0x03)
 				{
+					if (this->flag) {
+						*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() << " RX:: " <<
+							" Generating CNP PACKET::ECN::" << info.ecnbits <<
+							" QFB::" << info.qfb << " TOTAL::" << info.total <<
+							"" << std::endl;
+						m_node->num_cnp++;
+					}
 					Ptr<Packet> p = Create<Packet>(0);
 					CnHeader cn(port, qIndex, info.ecnbits, info.qfb, info.total);	// Prepare CN header
 					p->AddHeader(cn);
@@ -1148,6 +1296,10 @@ namespace ns3 {
 				}
 				else
 				{
+					if (this->flag) {
+						*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() << " NP: Node ::" << m_node->GetId() <<
+							" CLEARED ECN & QFB values " << std::endl;
+					}
 					((*m_ecn_source)[i]).ecnbits = 0;
 					((*m_ecn_source)[i]).qfb = 0;
 					((*m_ecn_source)[i]).total = 0;
@@ -1174,6 +1326,9 @@ namespace ns3 {
 			uint32_t fastrecover_times
 		)
 	{
+		if (this->flag) {
+			*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << " NODE :: SET BROADCOM PARAMS:" << m_node->GetId() << std::endl;
+		}
 		m_pausetime = pausetime;
 		m_qcn_interval = qcn_interval;
 		m_rpgTimeReset = qcn_resume_interval;
@@ -1181,6 +1336,8 @@ namespace ns3 {
 		m_minRate = m_minRate;
 		m_rai = rai;
 		m_rpgThreshold = fastrecover_times;
+		std::cout << " NODE :: SET BROADCOM PARAMS:" << std::endl;
+
 	}
 
 	Ptr<Channel>
@@ -1254,6 +1411,12 @@ namespace ns3 {
 	void
 		QbbNetDevice::rpr_fast_recovery(uint32_t fIndex, uint32_t hop)
 	{
+		if (this->flag) {
+			*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() <<
+				"\tFAST_RECOVERY_STAGE: RPSTAGE SET TO :: 1 " <<
+				"\tFLOWINDEX: " << fIndex <<
+				"" << std::endl;
+		}
 		m_rpStage[fIndex][hop] = 1;
 		return;
 	}
@@ -1262,6 +1425,12 @@ namespace ns3 {
 	void
 		QbbNetDevice::rpr_active_increase(uint32_t fIndex, uint32_t hop)
 	{
+		if (this->flag) {
+			*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() <<
+				" INCREASE TX RATE:: " << m_rai <<
+				" RPStage::" << m_rpStage[fIndex][hop] <<
+				"" << std::endl;
+		}
 		AdjustRates(fIndex, hop, m_rai);
 		m_rpStage[fIndex][hop] = 2;
 	}
@@ -1270,6 +1439,9 @@ namespace ns3 {
 	void
 		QbbNetDevice::rpr_active_byte(uint32_t fIndex, uint32_t hop)
 	{
+		if (this->flag) {
+			*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() << " RPR ACTIVE BYTE " << std::endl;
+		}
 		m_rpByteStage[fIndex][hop]++;
 		m_txBytes[fIndex][hop] = m_bc;
 		rpr_active_increase(fIndex, hop);
@@ -1278,6 +1450,9 @@ namespace ns3 {
 	void
 		QbbNetDevice::rpr_active_time(uint32_t fIndex, uint32_t hop)
 	{
+		if (this->flag) {
+			*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() << " RPR ACTIVE TIME " << std::endl;
+		}
 		m_rpTimeStage[fIndex][hop]++;
 		m_rpWhile[fIndex][hop] = m_rpgTimeReset;
 		Simulator::Cancel(m_rptimer[fIndex][hop]);
@@ -1289,6 +1464,9 @@ namespace ns3 {
 	void
 		QbbNetDevice::rpr_fast_byte(uint32_t fIndex, uint32_t hop)
 	{
+		if (this->flag) {
+			*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() << " RPR FAST BYTE " << std::endl;
+		}
 		m_rpByteStage[fIndex][hop]++;
 		m_txBytes[fIndex][hop] = m_bc;
 		if (m_rpByteStage[fIndex][hop] < m_rpgThreshold)
@@ -1306,6 +1484,13 @@ namespace ns3 {
 	void
 		QbbNetDevice::rpr_fast_time(uint32_t fIndex, uint32_t hop)
 	{
+		if (this->flag) {
+			*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() << " FAST TIME Recovery phase: " << 
+				" RPTIMESTAGE::" << m_rpTimeStage[fIndex][hop] <<
+				" RPTIMER::" << m_rpgTimeReset <<
+				" RPGThreshold::" << m_rpgThreshold <<
+				"" << std::endl;
+		}
 		m_rpTimeStage[fIndex][hop]++;
 		m_rpWhile[fIndex][hop] = m_rpgTimeReset;
 		Simulator::Cancel(m_rptimer[fIndex][hop]);
@@ -1321,6 +1506,9 @@ namespace ns3 {
 	void
 		QbbNetDevice::rpr_hyper_byte(uint32_t fIndex, uint32_t hop)
 	{
+		if (this->flag) {
+			*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() << " RPR HYPER BYTE " << std::endl;
+		}
 		m_rpByteStage[fIndex][hop]++;
 		m_txBytes[fIndex][hop] = m_bc / 2;
 		rpr_hyper_increase(fIndex, hop);
@@ -1330,6 +1518,13 @@ namespace ns3 {
 	void
 		QbbNetDevice::rpr_hyper_time(uint32_t fIndex, uint32_t hop)
 	{
+		if (this->flag) {
+			*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() << " ACTIVE Recovery phase: " <<
+				" RPTIMESTAGE::" << m_rpTimeStage[fIndex][hop] <<
+				" RPTIMER::" << m_rpgTimeReset <<
+				" RPGThreshold::" << m_rpgThreshold <<
+				"" << std::endl;
+		}
 		m_rpTimeStage[fIndex][hop]++;
 		m_rpWhile[fIndex][hop] = m_rpgTimeReset / 2;
 		Simulator::Cancel(m_rptimer[fIndex][hop]);
@@ -1341,6 +1536,13 @@ namespace ns3 {
 	void
 		QbbNetDevice::rpr_active_select(uint32_t fIndex, uint32_t hop)
 	{
+		if (this->flag) {
+			*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() << " ACTIVE Recovery phase: " <<
+				" RPTIMESTAGE::" << m_rpTimeStage[fIndex][hop] <<
+				" RPTIMER::" << m_rpgTimeReset <<
+				" RPGThreshold::" << m_rpgThreshold <<
+				"" << std::endl;
+		}
 		if (m_rpByteStage[fIndex][hop] < m_rpgThreshold || m_rpTimeStage[fIndex][hop] < m_rpgThreshold)
 			rpr_active_increase(fIndex, hop);
 		else
@@ -1373,6 +1575,12 @@ namespace ns3 {
 		m_rate[fIndex] = m_bps;
 		for (uint32_t j = 0; j < maxHop; j++)
 			m_rate[fIndex] = std::min(m_rate[fIndex], m_rateAll[fIndex][j]);
+		if (this->flag) {
+			*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() <<
+				" ADJUSTED FlowIndex:: " << fIndex <<
+				" TX RATE to:: " << m_rate[fIndex] <<
+				"" << std::endl;
+		}
 		return;
 	}
 
@@ -1391,24 +1599,59 @@ namespace ns3 {
 		{
 			m_targetRate[findex][hop] = m_rateAll[findex][hop];
 			m_txBytes[findex][hop] = m_bc; //for fluid model, QCN standard doesn't have this.
+			if (this->flag) {
+				*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() <<
+					"\tECN_CLAMP_TARGET_RATE:: Target Rate: " << m_rateAll[findex][hop] <<
+					"\tTX BYTE COUNTER: " << m_bc <<
+					"\tFLOWINDEX: " << findex <<
+					"" << std::endl;
+			}
 		}
 		else
 		{
+			if (this->flag) {
+				*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() <<
+					"\tECN_CLAMP_TARGET_RATE2:: Target Rate: " << m_rateAll[findex][hop] <<
+					"\tTX BYTE COUNTER: " << m_bc <<
+					"\tFLOWINDEX: " << findex <<
+					"" << std::endl;
+			}
 			if (m_rpByteStage[findex][hop] != 0 || m_rpTimeStage[findex][hop] != 0)
 			{
 				m_targetRate[findex][hop] = m_rateAll[findex][hop];
 				m_txBytes[findex][hop] = m_bc;
 			}
 		}
+
+		/* TX Based Rate Increments */
 		m_rpByteStage[findex][hop] = 0;
 		m_rpTimeStage[findex][hop] = 0;
 		//m_alpha[findex][hop] = (1-m_g)*m_alpha[findex][hop] + m_g*fraction;
 		m_alpha[findex][hop] = (1 - m_g)*m_alpha[findex][hop] + m_g; 	//binary feedback
 		m_rateAll[findex][hop] = std::max(m_minRate, m_rateAll[findex][hop] * (1 - m_alpha[findex][hop] / 2));
+		if (this->flag) {
+			*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() <<
+				"\tDCTCP_GAIN::" << m_g <<
+				"\tAlpha::" << m_alpha[findex][hop] <<
+				"\tTX RATE ADJUSTED TO::" << m_rateAll[findex][hop] <<
+				"" << std::endl;
+		}
 		Simulator::Cancel(m_resumeAlpha[findex][hop]);
+		if (this->flag) {
+			*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() <<
+				"\tSetup ResumeAlpha Timer::" << findex <<
+				"\tAlphaResumeInterval::" << m_alpha_resume_interval <<
+				"" << std::endl;
+		}
 		m_resumeAlpha[findex][hop] = Simulator::Schedule(MicroSeconds(m_alpha_resume_interval), &QbbNetDevice::ResumeAlpha, this, findex, hop);
 		m_rpWhile[findex][hop] = m_rpgTimeReset;
 		Simulator::Cancel(m_rptimer[findex][hop]);
+		if (this->flag) {
+			*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() << 
+				"\tSetup RP Timer::" << findex <<
+				"\tRPTimer Interval::" << m_rpWhile[findex][hop] <<
+				"" << std::endl;
+		}
 		m_rptimer[findex][hop] = Simulator::Schedule(MicroSeconds(m_rpWhile[findex][hop]), &QbbNetDevice::rpr_timer_wrapper, this, findex, hop);
 		rpr_fast_recovery(findex, hop);
 	}
@@ -1416,6 +1659,13 @@ namespace ns3 {
 	void
 		QbbNetDevice::rpr_timer_wrapper(uint32_t fIndex, uint32_t hop)
 	{
+		if (this->flag) {
+			*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() <<
+				" ############## TX RATE INCREASE PHASE ###############" << std::endl;
+			*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() <<
+				"\tRPR TIMER WRAPPER::FlowIndex:" << fIndex <<
+				"" << std::endl;
+		}
 		if (m_rpStage[fIndex][hop] == 1)
 		{
 			rpr_fast_time(fIndex, hop);
@@ -1428,6 +1678,10 @@ namespace ns3 {
 		{
 			rpr_hyper_time(fIndex, hop);
 		}
+		if (this->flag) {
+			*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() <<
+				" ############## TX RATE INCREASE PHASE ends ###############" << std::endl;
+		}
 		return;
 	}
 
@@ -1435,6 +1689,11 @@ namespace ns3 {
 		QbbNetDevice::ResumeAlpha(uint32_t fIndex, uint32_t hop)
 	{
 		m_alpha[fIndex][hop] = (1 - m_g)*m_alpha[fIndex][hop];
+		if (this->flag) {
+			*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() <<
+				"\tResumeAlpha ::" << m_alpha[fIndex][hop] << " For FLOWINDEX::" << fIndex <<
+				"" << std::endl;
+		}
 		Simulator::Cancel(m_resumeAlpha[fIndex][hop]);
 		m_resumeAlpha[fIndex][hop] = Simulator::Schedule(MicroSeconds(m_alpha_resume_interval), &QbbNetDevice::ResumeAlpha, this, fIndex, hop);
 	}

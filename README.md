@@ -3,6 +3,16 @@ This is an NS-3 simulator for RDMA over Converged Ethernet v2 (RoCEv2). It inclu
 
 It is based on NS-3 version 3.17, and ported to Visual Studio environment, as explained [here](https://www.nsnam.org/wiki/Ns-3_on_Visual_Studio_2012).  
 
+## DCQCN Note
+RecordDcqcn1 branch has the code changes to log all the DCQCN activity into the same trace file along with packet traces.
+This branch is intended to have clear picture of DCQCN algo during the runtime. Once you have run the simulation, you would see detailed activity from each node. This would allow you to understand the protocol.
+
+However there are some key notes worth to mention here:
+1. Simulator did not use RDMA V2 traffic
+2. Two RPs, both nodes have single flow to generate traffic.
+3. To decrease TX Rate, QFB is used (QCN Protocol) (This is not a config parameter)
+4. To increase TX Rate, DCTCP gain is used. (This is config parameter)
+
 ## Note
 TIMELY implementation is in "timely" branch and hasn't been merged into the master branch. So, you may not be able to simulate DCQCN and TIMELY simultaneously at this moment.
 

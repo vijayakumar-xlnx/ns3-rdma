@@ -51,6 +51,10 @@ public:
   QbbHelper ();
   virtual ~QbbHelper () {}
 
+  void RecordDcqcn (Ptr<OutputStreamWrapper> stream);
+  void CollectStatistics(Ptr<OutputStreamWrapper> stream);
+  void SetRateSamplingInterval(uint16_t rate_sampling_interval);
+
   /**
    * Each point to point net device must have a queue to pass packets through.
    * This method allows one to set the type of the queue that is automatically

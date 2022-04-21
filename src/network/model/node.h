@@ -200,6 +200,18 @@ public:
   void SetNodeType(uint32_t type, bool dynamicth);
   void SetNodeType(uint32_t type);
   uint32_t GetNodeType();
+
+  std::string m_name;
+  void SetNickName(const std::string name);
+  std::string GetNickName(void) const;
+  
+  // Counters
+  uint64_t num_ecn; //ECN markings (Switch) or ECN marking packets received (NP)
+  uint64_t num_cnp; // generated (NP) or Received/Addressed (RP)
+  uint64_t num_pfc;
+  uint64_t num_prev_bytes;
+  uint64_t num_bytes;
+  uint64_t rate_sampling_interval;
   
   /*
   bool CheckIngressAdmission(uint32_t port,uint32_t qIndex, uint32_t psize);

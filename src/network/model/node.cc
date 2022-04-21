@@ -469,6 +469,16 @@ Node::GetNodeType()
 }
 
 
+void Node::SetNickName(const std::string name)
+{
+	m_name = name;
+}
+
+std::string Node::GetNickName(void) const
+{
+	return m_name;
+}
+
 /*
 void
 Node::SetBroadcomParams(uint32_t maxBufferBytes, 

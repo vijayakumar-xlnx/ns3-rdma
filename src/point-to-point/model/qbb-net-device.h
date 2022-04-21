@@ -29,6 +29,7 @@
 #include "ns3/ipv4.h"
 #include "ns3/ipv4-header.h"
 #include "ns3/udp-header.h"
+#include "ns3/trace-helper.h"
 #include <vector>
 #include<map>
 
@@ -50,6 +51,10 @@ public:
 
   QbbNetDevice ();
   virtual ~QbbNetDevice ();
+
+  bool flag;
+  Ptr<OutputStreamWrapper> dcqcn;
+  void MonitorLinkRate(void);
 
   /**
    * Receive a packet from a connected PointToPointChannel.

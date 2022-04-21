@@ -51,6 +51,81 @@ QbbHelper::QbbHelper ()
   m_remoteChannelFactory.SetTypeId ("ns3::QbbRemoteChannel");
 }
 
+void
+QbbHelper::RecordDcqcn(Ptr<OutputStreamWrapper> stream)
+{
+
+	NodeContainer n;
+	Ptr<NetDevice> ndev;
+	Ptr<QbbNetDevice> qbbdev;
+
+	n = NodeContainer::GetGlobal();
+	for (NodeContainer::Iterator i = n.Begin(); i != n.End(); ++i)
+	{
+		Ptr<Node> node = *i;
+
+		//reset node couneters
+		node->num_cnp = 0;
+		node->num_ecn = 0;
+		node->num_pfc = 0;
+		node->num_prev_bytes = 0;
+		node->num_bytes = 0;
+		node->rate_sampling_interval = 0; 
+
+		for (uint32_t j = 0; j < node->GetNDevices(); ++j)
+		{
+			ndev = node->GetDevice(j);
+			qbbdev = ndev->GetObject<QbbNetDevice>();
+
+			if (qbbdev) {
+				qbbdev->flag = 1;
+				qbbdev->dcqcn = stream;
+			}
+		}
+	}
+}
+
+void
+QbbHelper::SetRateSamplingInterval(uint16_t rate_sampling_interval)
+{
+	NodeContainer n;
+	n = NodeContainer::GetGlobal();
+	for (NodeContainer::Iterator i = n.Begin(); i != n.End(); ++i)
+	{
+		Ptr<Node> node = *i;
+
+		if (node->GetNodeType() == 1) {
+			node->rate_sampling_interval = rate_sampling_interval;
+		}
+	}
+}
+
+void
+QbbHelper::CollectStatistics(Ptr<OutputStreamWrapper> stream)
+{
+
+	NodeContainer n;
+	Ptr<NetDevice> ndev;
+	Ptr<QbbNetDevice> qbbdev;
+
+	n = NodeContainer::GetGlobal();
+	for (NodeContainer::Iterator i = n.Begin(); i != n.End(); ++i)
+	{
+		Ptr<Node> node = *i;
+
+		*stream->GetStream() << "STATISTICS ### " << node->GetNickName() << " ### " << std::endl;
+		*stream->GetStream() << " NUM_ECN::" << node->num_ecn <<
+								" NUM_CNP::" << node->num_cnp <<
+								" NUM_PFC::" << node->num_pfc <<
+								"" << std::endl;
+		std::cout << "STATISTICS ### " << node->GetNickName() << " ### " << std::endl;
+		std::cout << " NUM_ECN::" << node->num_ecn <<
+			" NUM_CNP::" << node->num_cnp <<
+			" NUM_PFC::" << node->num_pfc <<
+			"" << std::endl;
+	}
+}
+
 void 
 QbbHelper::SetQueue (std::string type,
                               std::string n1, const AttributeValue &v1,
@@ -198,6 +273,7 @@ QbbHelper::EnableAsciiInternal (
   // but the default trace sinks are actually publicly available static 
   // functions that are always there waiting for just such a case.
   //
+
   uint32_t nodeid = nd->GetNode ()->GetId ();
   uint32_t deviceid = nd->GetIfIndex ();
   std::ostringstream oss;
