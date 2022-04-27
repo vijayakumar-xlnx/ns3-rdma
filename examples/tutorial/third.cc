@@ -448,7 +448,7 @@ int main(int argc, char *argv[])
 		topof >> sid;
 		n.Get(sid)->SetNodeType(1, dynamicth); //broadcom switch
 		n.Get(sid)->m_broadcom->SetMarkingThreshold(kmin, kmax, pmax);
-    n.Get(sid)->SetNickName(cp + std::to_string(i));
+		n.Get(sid)->SetNickName(cp + std::to_string(i));
 	}
 
 

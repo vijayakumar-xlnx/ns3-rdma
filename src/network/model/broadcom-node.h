@@ -58,6 +58,11 @@ namespace ns3 {
 		static const unsigned qCnt = 8;	// Number of queues/priorities used
 		static const unsigned pCnt = 64;	// Number of ports used
 
+		//per port line rate
+		uint64_t m_ingress_bytes[pCnt];
+		uint64_t m_egress_bytes[pCnt];
+		uint64_t m_prev_ingress_bytes[pCnt];
+		uint64_t m_prev_egress_bytes[pCnt];
 		static TypeId GetTypeId(void);
 
 		BroadcomNode();
@@ -108,6 +113,12 @@ namespace ns3 {
 		uint32_t GetUsedBufferTotal();
 
 		void SetDynamicThreshold();
+
+		uint64_t GetIngressPortBytes(uint8_t port);
+		uint64_t GetEgressPortBytes(uint8_t port);
+		uint64_t GetPrevIngressPortBytes(uint8_t port, uint64_t current_bytes);
+		uint64_t GetPrevEgressPortBytes(uint8_t port, uint64_t current_bytes);
+
 
 	protected:
 		uint32_t GetIngressSP(uint32_t port, uint32_t pgIndex);
@@ -171,6 +182,9 @@ namespace ns3 {
 		uint32_t m_dctcp_threshold;
 		uint32_t m_dctcp_threshold_max;
 		bool m_enable_pfc_on_dctcp;
+
+
+
 	};
 
 } // namespace ns3

@@ -44,6 +44,7 @@
 #include "ns3/ppp-header.h"
 #include "ns3/udp-header.h"
 #include "ns3/seq-ts-header.h"
+#include "ns3/broadcom-node.h"
 
 #include <iostream>
 
@@ -1166,7 +1167,12 @@ namespace ns3 {
 	void
 		QbbNetDevice::MonitorLinkRate(void)
 	{
+		uint64_t index = 0;
 		uint64_t bytes;
+		uint64_t prev_bytes;
+		double ingress_rate;
+		double egress_rate;
+		Ptr<BroadcomNode> m_broadcom;
 
 		bytes = this->m_node->num_bytes - this->m_node->num_prev_bytes;
 		this->m_node->num_prev_bytes = this->m_node->num_bytes;
@@ -1177,6 +1183,41 @@ namespace ns3 {
 				" [bits per " << this->m_node->rate_sampling_interval << " Microseconds ]" <<
 				"" << std::endl;
 		}
+		if (this->m_node->GetNodeType() == 1) {
+
+			m_broadcom = this->m_node->m_broadcom;
+			
+			for (index = 0; index < m_broadcom->pCnt; index++) {
+				
+				if (bytes = m_broadcom->GetIngressPortBytes(index)) {
+					bytes = bytes - m_broadcom->GetPrevIngressPortBytes(index, bytes);
+					if (bytes) {
+						ingress_rate = ((bytes * 8) / this->m_node->rate_sampling_interval) * 1000000;
+						*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() <<
+							" PORT::" << index <<
+							" INGRESS RATE::" << ingress_rate / 1000000000 <<
+							" Gbps" <<
+							"" << std::endl;
+					}
+				}
+			
+				if (bytes = m_broadcom->GetEgressPortBytes(index)) {
+					bytes = bytes - m_broadcom->GetPrevEgressPortBytes(index, bytes);
+					if (bytes) {
+						egress_rate = ((bytes * 8) / this->m_node->rate_sampling_interval) * 1000000;
+						*this->dcqcn->GetStream() << Simulator::Now().GetSeconds() << m_node->GetNickName() <<
+							" PORT::" << index <<
+							" EGRESS RATE::" << egress_rate / 1000000000 <<
+//							" EGRESS RATE::" << egress_rate / 1073741824 <<
+							" Gbps" <<
+							"" << std::endl;
+					}
+				}
+			
+			}
+			
+		}
+
 		Simulator::Schedule(MicroSeconds(this->m_node->rate_sampling_interval), &QbbNetDevice::MonitorLinkRate, this);
 	}
 

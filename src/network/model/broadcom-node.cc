@@ -58,6 +58,11 @@ namespace ns3 {
 
 		for (uint32_t i = 0; i < pCnt; i++)
 		{
+			m_prev_ingress_bytes[i] = 0;
+			m_ingress_bytes[i] = 0;
+			m_egress_bytes[i] = 0;
+			m_prev_egress_bytes[i] = 0;
+
 			m_usedIngressPortBytes[i] = 0;
 			m_usedEgressPortBytes[i] = 0;
 			for (uint32_t j = 0; j < qCnt; j++)
@@ -164,6 +169,7 @@ namespace ns3 {
 	void
 		BroadcomNode::UpdateIngressAdmission(uint32_t port, uint32_t qIndex, uint32_t psize)
 	{
+		m_ingress_bytes[port] += psize;
 		m_usedTotalBytes += psize; //count total buffer usage
 		m_usedIngressSPBytes[GetIngressSP(port, qIndex)] += psize;
 		m_usedIngressPortBytes[port] += psize;
@@ -178,7 +184,7 @@ namespace ns3 {
 	void
 		BroadcomNode::UpdateEgressAdmission(uint32_t port, uint32_t qIndex, uint32_t psize)
 	{
-
+		m_egress_bytes[port] += psize;
 		if (m_usedEgressQMinBytes[port][qIndex] + psize < m_q_min_cell)	//guaranteed
 		{
 			m_usedEgressQMinBytes[port][qIndex] += psize;
@@ -432,5 +438,52 @@ namespace ns3 {
 		m_dctcp_threshold_max = kmax * 1030;
 	}
 
+	uint64_t
+		BroadcomNode::GetEgressPortBytes(uint8_t port)
+	{
+		return m_egress_bytes[port];
+	}
+
+	uint64_t
+		BroadcomNode::GetIngressPortBytes(uint8_t port)
+	{
+		return m_ingress_bytes[port];
+	}
+
+	uint64_t
+		BroadcomNode::GetPrevEgressPortBytes(uint8_t port, uint64_t current_bytes)
+	{
+		uint64_t prev_bytes;
+
+		prev_bytes = m_prev_egress_bytes[port];
+
+		if (current_bytes) {
+			m_prev_egress_bytes[port] = current_bytes;
+		}
+		else
+		{
+			m_prev_egress_bytes[port] = GetEgressPortBytes(port);
+		}
+
+		return prev_bytes;
+	}
+
+	uint64_t
+		BroadcomNode::GetPrevIngressPortBytes(uint8_t port, uint64_t current_bytes)
+	{
+		uint64_t prev_bytes;
+
+		prev_bytes = m_prev_ingress_bytes[port];
+
+		if (current_bytes) {
+			m_prev_ingress_bytes[port] = current_bytes;
+		}
+		else
+		{
+			m_prev_ingress_bytes[port] = GetIngressPortBytes(port);
+		}
+
+		return prev_bytes;
+	}
 
 } // namespace ns3
